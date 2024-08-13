@@ -1,0 +1,6 @@
+.direnv
+.vscode
+.clangd
+**.mp4
+**.pgm
+.DS_Store
