@@ -3,13 +3,14 @@ Resources Used:
 https://github.com/leandromoreira/ffmpeg-libav-tutorial/blob/master/0_hello_world.c
 https://github.com/FFmpeg/FFmpeg/blob/master/doc/examples/decode_video.c
 http://www.dranger.com/ffmpeg/tutorial01.html
-@TODO: https://stackoverflow.com/questions/39105571/decoding-mp4-mkv-using-ffmpeg-fails
+@TODO:
+https://stackoverflow.com/questions/39105571/decoding-mp4-mkv-using-ffmpeg-fails
 */
 
-#include <libavcodec/codec.h>
-#include <libavcodec/codec_par.h>
 #include <libavcodec/avcodec.h> // codecs
+#include <libavcodec/codec.h>
 #include <libavcodec/codec_id.h>
+#include <libavcodec/codec_par.h>
 #include <libavcodec/defs.h>
 #include <libavcodec/packet.h>
 #include <libavformat/avformat.h> // for containers
@@ -17,8 +18,10 @@ http://www.dranger.com/ffmpeg/tutorial01.html
 #include <stdio.h>
 #include <stdlib.h>
 
-static void save_frame(unsigned char *buf, int wrap, int height, int width, char *filename);
-static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx, AVFrame *frame);
+static void save_frame(unsigned char *buf, int wrap, int height, int width,
+                       char *filename);
+static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx,
+                         AVFrame *frame);
 
 int main(int argc, char **argv) {
   const char *infile;
@@ -95,10 +98,12 @@ int main(int argc, char **argv) {
   // fill the Packet with data from the Stream
   // https://ffmpeg.org/doxygen/trunk/group__lavf__decoding.html#ga4fdb3084415a82e3810de6ee60e46a61
   int amt_packets = 8;
-  while (av_read_frame(format_ctx, packet) >= 0)  {
+  while (av_read_frame(format_ctx, packet) >= 0) {
     if (packet->stream_index == vid_index) {
-      if (decode_packet(packet, codec_ctx, frame) < 0) break;
-      if (--amt_packets <= 0) break;
+      if (decode_packet(packet, codec_ctx, frame) < 0)
+        break;
+      if (--amt_packets <= 0)
+        break;
     }
     av_packet_unref(packet);
   }
@@ -111,7 +116,8 @@ int main(int argc, char **argv) {
   return 0;
 }
 
-static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx, AVFrame *frame) {
+static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx,
+                         AVFrame *frame) {
   if (avcodec_send_packet(codec_ctx, packet) < 0) {
     fprintf(stderr, "Could not send packet to decoder\n");
     return -1;
@@ -119,7 +125,6 @@ static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx, AVFrame *f
   int response = 0;
 
   while (response >= 0) {
-    // codec what decoded output data into a the frame
     int response = avcodec_receive_frame(codec_ctx, frame);
     if (response == AVERROR(EAGAIN) || response == AVERROR_EOF) {
       // https://ffmpeg.org/doxygen/trunk/group__lavc__decoding.html#ga11e6542c4e66d3028668788a1a74217c
@@ -130,14 +135,17 @@ static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx, AVFrame *f
     }
 
     char frame_filename[1024];
-    snprintf(frame_filename, sizeof(frame_filename), "%s-%d.pgm", "frame", (int)codec_ctx->frame_num);
-    save_frame(frame->data[0], frame->linesize[0], frame->height, frame->width, frame_filename);
+    snprintf(frame_filename, sizeof(frame_filename), "%s-%d.pgm", "frame",
+             (int)codec_ctx->frame_num);
+    save_frame(frame->data[0], frame->linesize[0], frame->height, frame->width,
+               frame_filename);
   }
 
   return 0;
 }
 
-static void save_frame(unsigned char *buf, int wrap, int height, int width, char *filename) {
+static void save_frame(unsigned char *buf, int wrap, int height, int width,
+                       char *filename) {
   printf("Saving file %s\n", filename);
   FILE *f;
   f = fopen(filename, "w");
