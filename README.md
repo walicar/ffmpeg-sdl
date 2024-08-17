@@ -1,6 +1,4 @@
 # ffmpeg-sdl
-GOAL: Using ffmpeg to decode a frame and render it using SDL
-
 Current program will use an h264 codec to decode 6 frames of big buck bunny and save it as a .pgm file.
 
 ## Required Assets
@@ -18,7 +16,7 @@ The recommended way to start coding on this project is to use:
 - VSCode, and download the clangd extension
 
 ```sh
-$ git clone ffmpeg-sdl
-$ code ffmpeg-sdl
-$ direnv allow
+git clone https://github.com/walicar/ffmpeg-sdl
+code ffmpeg-sdl
+direnv allow
 ```
