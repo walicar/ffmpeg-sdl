@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
 
   SDL_Window *window = SDL_CreateWindow("ffmpeg-sdl", SDL_WINDOWPOS_UNDEFINED,
                                         SDL_WINDOWPOS_UNDEFINED, SCR_WIDTH,
-                                        SCR_HEIGHT, SDL_WINDOW_SHOWN);
+                                        SCR_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_ALWAYS_ON_TOP);
 
   if (!window) {
     fprintf(stderr, "Could not create SDL window, SDL_ERROR: %s\n",
