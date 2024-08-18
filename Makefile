@@ -1,4 +1,4 @@
-LIBS = libavcodec libavformat libavutil sdl2
+LIBS = libavcodec libavformat libavutil libswscale sdl2
 
 C_FLAGS = $(shell pkg-config --cflags $(LIBS))
 L_FLAGS = $(shell pkg-config --libs $(LIBS))

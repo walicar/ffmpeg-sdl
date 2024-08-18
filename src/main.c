@@ -2,12 +2,15 @@
 @ffmpeg
 https://github.com/leandromoreira/ffmpeg-libav-tutorial/blob/master/0_hello_world.c
 https://github.com/FFmpeg/FFmpeg/blob/master/doc/examples/decode_video.c
+https://github.com/FFmpeg/FFmpeg/blob/master/doc/examples/scale_video.c
 http://www.dranger.com/ffmpeg/tutorial01.html
 
 @SDL
 https://lazyfoo.net/tutorials/SDL/01_hello_SDL/index2.php
 */
 
+#include "libavutil/frame.h"
+#include "libavutil/pixfmt.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_error.h>
 #include <SDL2/SDL_render.h>
@@ -20,17 +23,18 @@ https://lazyfoo.net/tutorials/SDL/01_hello_SDL/index2.php
 #include <libavcodec/packet.h>
 #include <libavformat/avformat.h> // for containers
 #include <libavutil/avutil.h>
+#include <libavutil/imgutils.h>
+#include <libswscale/swscale.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-// source  1920 x 1080p
-// @TODO: display 470 x 280p video with swscale
 const int SCR_WIDTH = 470;
 const int SCR_HEIGHT = 280;
+const enum AVPixelFormat PIX_FMT = AV_PIX_FMT_YUV420P;
 
 static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx,
-                         AVFrame *frame, SDL_Renderer *renderer,
-                         SDL_Texture *texture);
+                         AVFrame *frame, struct SwsContext *sws_ctx,
+                         SDL_Renderer *renderer, SDL_Texture *texture);
 static void display_frame(AVFrame *frame, SDL_Renderer *renderer,
                           SDL_Texture *texture);
 
@@ -47,9 +51,9 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  SDL_Window *window = SDL_CreateWindow("ffmpeg-sdl", SDL_WINDOWPOS_UNDEFINED,
-                                        SDL_WINDOWPOS_UNDEFINED, SCR_WIDTH,
-                                        SCR_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_ALWAYS_ON_TOP);
+  SDL_Window *window = SDL_CreateWindow(
+      "ffmpeg-sdl", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCR_WIDTH,
+      SCR_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_ALWAYS_ON_TOP);
 
   if (!window) {
     fprintf(stderr, "Could not create SDL window, SDL_ERROR: %s\n",
@@ -76,8 +80,7 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  AVFormatContext *format_ctx;
-  format_ctx = avformat_alloc_context();
+  AVFormatContext *format_ctx = avformat_alloc_context();
   if (!format_ctx) {
     fprintf(stderr, "Could not allocate format context\n");
     exit(1);
@@ -127,6 +130,15 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
+  struct SwsContext *sws_ctx =
+      sws_getContext(codec_ctx->width, codec_ctx->height, PIX_FMT, SCR_WIDTH,
+                     SCR_HEIGHT, PIX_FMT, SWS_BILINEAR, NULL, NULL, NULL);
+
+  if (!sws_ctx) {
+    fprintf(stderr, "Could not get sws context\n");
+    exit(1);
+  }
+
   AVFrame *frame = av_frame_alloc();
   if (!frame) {
     fprintf(stderr, "Could not allocate frame\n");
@@ -144,7 +156,8 @@ int main(int argc, char **argv) {
   int amt_packets = 8; // first two packets are NAL
   while (av_read_frame(format_ctx, packet) >= 0) {
     if (packet->stream_index == vid_index) {
-      if (decode_packet(packet, codec_ctx, frame, renderer, texture) < 0)
+      if (decode_packet(packet, codec_ctx, frame, sws_ctx, renderer, texture) <
+          0)
         break;
       if (--amt_packets <= 0)
         break;
@@ -158,6 +171,7 @@ int main(int argc, char **argv) {
   av_packet_free(&packet);
   av_frame_free(&frame);
   avcodec_free_context(&codec_ctx);
+  sws_freeContext(sws_ctx);
   SDL_DestroyTexture(texture);
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
@@ -166,8 +180,8 @@ int main(int argc, char **argv) {
 }
 
 static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx,
-                         AVFrame *frame, SDL_Renderer *renderer,
-                         SDL_Texture *texture) {
+                         AVFrame *frame, struct SwsContext *sws_ctx,
+                         SDL_Renderer *renderer, SDL_Texture *texture) {
   if (avcodec_send_packet(codec_ctx, packet) < 0) {
     fprintf(stderr, "Could not send packet to decoder\n");
     return -1;
@@ -183,7 +197,26 @@ static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx,
       fprintf(stderr, "Could not send packet to decoder\n");
       return response;
     }
-    display_frame(frame, renderer, texture);
+
+    AVFrame *dst_frame = av_frame_alloc();
+    if (!dst_frame) {
+        fprintf(stderr, "Could not allocate destination frame\n");
+        exit(1);
+    }
+    dst_frame->format = PIX_FMT;
+    dst_frame->width = SCR_WIDTH;
+    dst_frame->height = SCR_HEIGHT;
+
+    if (av_image_alloc(dst_frame->data, dst_frame->linesize, SCR_WIDTH,
+                       SCR_HEIGHT, PIX_FMT, 32) < 0) {
+      fprintf(stderr, "Could not alloc image\n");
+      return -1;
+    }
+
+    sws_scale(sws_ctx, (const uint8_t *const *)frame->data, frame->linesize, 0,
+              frame->height, dst_frame->data, dst_frame->linesize);
+    display_frame(dst_frame, renderer, texture);
+    av_frame_free(&dst_frame);
   }
   return 0;
 }
