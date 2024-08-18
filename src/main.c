@@ -1,13 +1,18 @@
-/*
-Resources Used:
+/* Resources used:
+@ffmpeg
 https://github.com/leandromoreira/ffmpeg-libav-tutorial/blob/master/0_hello_world.c
 https://github.com/FFmpeg/FFmpeg/blob/master/doc/examples/decode_video.c
 http://www.dranger.com/ffmpeg/tutorial01.html
-@TODO:
-https://stackoverflow.com/questions/39105571/decoding-mp4-mkv-using-ffmpeg-fails
+
+@SDL
+https://lazyfoo.net/tutorials/SDL/01_hello_SDL/index2.php
 */
 
-#include <libavcodec/avcodec.h> // codecs
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_error.h>
+#include <SDL2/SDL_render.h>
+#include <SDL2/SDL_video.h>
+#include <libavcodec/avcodec.h>
 #include <libavcodec/codec.h>
 #include <libavcodec/codec_id.h>
 #include <libavcodec/codec_par.h>
@@ -18,10 +23,13 @@ https://stackoverflow.com/questions/39105571/decoding-mp4-mkv-using-ffmpeg-fails
 #include <stdio.h>
 #include <stdlib.h>
 
-static void save_frame(unsigned char *buf, int wrap, int height, int width,
-                       char *filename);
-static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx,
-                         AVFrame *frame);
+// source  1920 x 1080p
+// @TODO: display 470 x 280p, with swscale
+const int SCR_WIDTH = 470;
+const int SCR_HEIGHT = 280;
+
+static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx, AVFrame *frame, SDL_Renderer *renderer, SDL_Texture *texture);
+static void display_frame(AVFrame *frame, SDL_Renderer *renderer, SDL_Texture *texture);
 
 int main(int argc, char **argv) {
   const char *infile;
@@ -31,7 +39,39 @@ int main(int argc, char **argv) {
     exit(0);
   }
 
-  infile = argv[1];
+  if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+    fprintf(stderr, "Could not initialize SDL\n");
+    exit(1);
+  }
+
+  SDL_Window *window = SDL_CreateWindow("ffmpeg-sdl", SDL_WINDOWPOS_UNDEFINED,
+                                        SDL_WINDOWPOS_UNDEFINED, SCR_WIDTH,
+                                        SCR_HEIGHT, SDL_WINDOW_SHOWN);
+
+  if (!window) {
+    fprintf(stderr, "Could not create SDL window, SDL_ERROR: %s\n",
+            SDL_GetError());
+    exit(1);
+  }
+
+  SDL_Renderer *renderer =
+      SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+
+  if (!renderer) {
+    fprintf(stderr, "Could not create SDL renderer, SDL_ERROR: %s\n",
+            SDL_GetError());
+    exit(1);
+  }
+
+  SDL_Texture *texture =
+      SDL_CreateTexture(renderer, SDL_PIXELFORMAT_IYUV,
+                        SDL_TEXTUREACCESS_STREAMING, SCR_WIDTH, SCR_HEIGHT);
+
+  if (!texture) {
+    fprintf(stderr, "Could not create SDL texture, SDL_ERROR: %s\n",
+            SDL_GetError());
+    exit(1);
+  }
 
   AVFormatContext *format_ctx;
   format_ctx = avformat_alloc_context();
@@ -40,6 +80,7 @@ int main(int argc, char **argv) {
     exit(1);
   };
 
+  infile = argv[1];
   if (avformat_open_input(&format_ctx, infile, NULL, NULL) < 0) {
     fprintf(stderr, "Could not open file to get format\n");
     exit(1);
@@ -100,12 +141,13 @@ int main(int argc, char **argv) {
   int amt_packets = 8;
   while (av_read_frame(format_ctx, packet) >= 0) {
     if (packet->stream_index == vid_index) {
-      if (decode_packet(packet, codec_ctx, frame) < 0)
+      if (decode_packet(packet, codec_ctx, frame, renderer, texture) < 0)
         break;
       if (--amt_packets <= 0)
         break;
     }
     av_packet_unref(packet);
+    SDL_PollEvent(NULL); // required to get screen to show up
   }
 
   // free resources
@@ -113,17 +155,20 @@ int main(int argc, char **argv) {
   av_packet_free(&packet);
   av_frame_free(&frame);
   avcodec_free_context(&codec_ctx);
+  SDL_DestroyTexture(texture);
+  SDL_DestroyRenderer(renderer);
+  SDL_DestroyWindow(window);
+  SDL_Quit();
   return 0;
 }
 
-static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx,
-                         AVFrame *frame) {
+static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx, AVFrame *frame, SDL_Renderer *renderer, SDL_Texture *texture) {
   if (avcodec_send_packet(codec_ctx, packet) < 0) {
     fprintf(stderr, "Could not send packet to decoder\n");
     return -1;
   }
   int response = 0;
-
+  // https://ffmpeg.org/doxygen/trunk/group__lavc__encdec.html#ga4c1691163d2b0616f21af5fed28b6de3
   while (response >= 0) {
     int response = avcodec_receive_frame(codec_ctx, frame);
     if (response == AVERROR(EAGAIN) || response == AVERROR_EOF) {
@@ -133,25 +178,19 @@ static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx,
       fprintf(stderr, "Could not send packet to decoder\n");
       return response;
     }
-
-    char frame_filename[1024];
-    snprintf(frame_filename, sizeof(frame_filename), "%s-%d.pgm", "frame",
-             (int)codec_ctx->frame_num);
-    save_frame(frame->data[0], frame->linesize[0], frame->height, frame->width,
-               frame_filename);
+    display_frame(frame, renderer, texture);
   }
-
   return 0;
 }
 
-static void save_frame(unsigned char *buf, int wrap, int height, int width,
-                       char *filename) {
-  printf("Saving file %s\n", filename);
-  FILE *f;
-  f = fopen(filename, "w");
-  fprintf(f, "P5\n%d %d\n%d\n", width, height, 255);
-
-  for (int i = 0; i < height; i++)
-    fwrite(buf + i * wrap, 1, width, f);
-  fclose(f);
+static void display_frame(AVFrame *frame, SDL_Renderer *renderer, SDL_Texture *texture) {
+  SDL_UpdateYUVTexture(texture, NULL,
+    frame->data[0], frame->linesize[0],
+    frame->data[1], frame->linesize[1],
+    frame->data[2], frame->linesize[2]
+  );
+  SDL_RenderClear(renderer);
+  SDL_RenderCopy(renderer, texture, NULL, NULL);
+  SDL_RenderPresent(renderer);
+  SDL_Delay(250);
 }
