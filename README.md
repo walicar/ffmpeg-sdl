@@ -6,7 +6,7 @@ Uses `bbb_sunflower_1080p_30fps_normal.mp4` from [this website](https://peach.bl
 
 ## Usage
 ```sh
-make && ./main assets/bbb.mp4
+make && ./app assets/bbb.mp4
 ```
 
 ## Setup Your Dev Environment
