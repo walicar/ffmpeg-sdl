@@ -12,7 +12,6 @@
     in {
       devShells.default = pkgs.mkShell {
         packages = with pkgs; [
-          clang-tools
           pkg-config
           ffmpeg
           SDL2
