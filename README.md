@@ -1,5 +1,5 @@
 # ffmpeg-sdl
-Current program will use an h264 codec to decode 6 frames of big buck bunny and save it as a .pgm file.
+Decode and display the first few frames of Big Buck Bunny using SDL and ffmpeg
 
 ## Required Assets
 Uses `bbb_sunflower_1080p_30fps_normal.mp4` from [this website](https://peach.blender.org/download/), renamed to `bbb.mp4`. `bbb.mp4` is already encoded with encoded in H264.
