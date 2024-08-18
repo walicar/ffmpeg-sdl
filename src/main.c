@@ -24,12 +24,15 @@ https://lazyfoo.net/tutorials/SDL/01_hello_SDL/index2.php
 #include <stdlib.h>
 
 // source  1920 x 1080p
-// @TODO: display 470 x 280p, with swscale
+// @TODO: display 470 x 280p video with swscale
 const int SCR_WIDTH = 470;
 const int SCR_HEIGHT = 280;
 
-static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx, AVFrame *frame, SDL_Renderer *renderer, SDL_Texture *texture);
-static void display_frame(AVFrame *frame, SDL_Renderer *renderer, SDL_Texture *texture);
+static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx,
+                         AVFrame *frame, SDL_Renderer *renderer,
+                         SDL_Texture *texture);
+static void display_frame(AVFrame *frame, SDL_Renderer *renderer,
+                          SDL_Texture *texture);
 
 int main(int argc, char **argv) {
   const char *infile;
@@ -138,7 +141,7 @@ int main(int argc, char **argv) {
 
   // fill the Packet with data from the Stream
   // https://ffmpeg.org/doxygen/trunk/group__lavf__decoding.html#ga4fdb3084415a82e3810de6ee60e46a61
-  int amt_packets = 8;
+  int amt_packets = 8; // first two packets are NAL
   while (av_read_frame(format_ctx, packet) >= 0) {
     if (packet->stream_index == vid_index) {
       if (decode_packet(packet, codec_ctx, frame, renderer, texture) < 0)
@@ -162,7 +165,9 @@ int main(int argc, char **argv) {
   return 0;
 }
 
-static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx, AVFrame *frame, SDL_Renderer *renderer, SDL_Texture *texture) {
+static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx,
+                         AVFrame *frame, SDL_Renderer *renderer,
+                         SDL_Texture *texture) {
   if (avcodec_send_packet(codec_ctx, packet) < 0) {
     fprintf(stderr, "Could not send packet to decoder\n");
     return -1;
@@ -183,12 +188,11 @@ static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx, AVFrame *f
   return 0;
 }
 
-static void display_frame(AVFrame *frame, SDL_Renderer *renderer, SDL_Texture *texture) {
-  SDL_UpdateYUVTexture(texture, NULL,
-    frame->data[0], frame->linesize[0],
-    frame->data[1], frame->linesize[1],
-    frame->data[2], frame->linesize[2]
-  );
+static void display_frame(AVFrame *frame, SDL_Renderer *renderer,
+                          SDL_Texture *texture) {
+  SDL_UpdateYUVTexture(texture, NULL, frame->data[0], frame->linesize[0],
+                       frame->data[1], frame->linesize[1], frame->data[2],
+                       frame->linesize[2]);
   SDL_RenderClear(renderer);
   SDL_RenderCopy(renderer, texture, NULL, NULL);
   SDL_RenderPresent(renderer);
