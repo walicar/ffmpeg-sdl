@@ -33,7 +33,7 @@ const int SCR_HEIGHT = 280;
 const enum AVPixelFormat PIX_FMT = AV_PIX_FMT_YUV420P;
 
 static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx,
-                         AVFrame *frame, struct SwsContext *sws_ctx,
+                         AVFrame *frame, AVFrame *dst_frame, struct SwsContext *sws_ctx,
                          SDL_Renderer *renderer, SDL_Texture *texture);
 static void display_frame(AVFrame *frame, SDL_Renderer *renderer,
                           SDL_Texture *texture);
@@ -139,24 +139,34 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  AVFrame *frame = av_frame_alloc();
-  if (!frame) {
-    fprintf(stderr, "Could not allocate frame\n");
-    exit(1);
-  }
-
   AVPacket *packet = av_packet_alloc();
   if (!packet) {
     fprintf(stderr, "Could not allocate packet\n");
     exit(1);
   }
 
+  AVFrame *frame = av_frame_alloc();
+  if (!frame) {
+    fprintf(stderr, "Could not allocate frame\n");
+    exit(1);
+  }
+
+  AVFrame *dst_frame = av_frame_alloc();
+  if (!dst_frame) {
+      fprintf(stderr, "Could not allocate destination frame\n");
+      exit(1);
+  }
+
+  dst_frame->format = PIX_FMT;
+  dst_frame->width = SCR_WIDTH;
+  dst_frame->height = SCR_HEIGHT;
+
   // fill the Packet with data from the Stream
   // https://ffmpeg.org/doxygen/trunk/group__lavf__decoding.html#ga4fdb3084415a82e3810de6ee60e46a61
   int amt_packets = 8; // first two packets are NAL
   while (av_read_frame(format_ctx, packet) >= 0) {
     if (packet->stream_index == vid_index) {
-      if (decode_packet(packet, codec_ctx, frame, sws_ctx, renderer, texture) <
+      if (decode_packet(packet, codec_ctx, frame, dst_frame, sws_ctx, renderer, texture) <
           0)
         break;
       if (--amt_packets <= 0)
@@ -170,6 +180,7 @@ int main(int argc, char **argv) {
   avformat_close_input(&format_ctx);
   av_packet_free(&packet);
   av_frame_free(&frame);
+  av_frame_free(&dst_frame);
   avcodec_free_context(&codec_ctx);
   sws_freeContext(sws_ctx);
   SDL_DestroyTexture(texture);
@@ -180,12 +191,13 @@ int main(int argc, char **argv) {
 }
 
 static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx,
-                         AVFrame *frame, struct SwsContext *sws_ctx,
+                         AVFrame *frame, AVFrame *dst_frame, struct SwsContext *sws_ctx,
                          SDL_Renderer *renderer, SDL_Texture *texture) {
   if (avcodec_send_packet(codec_ctx, packet) < 0) {
     fprintf(stderr, "Could not send packet to decoder\n");
     return -1;
   }
+
   int response = 0;
   // https://ffmpeg.org/doxygen/trunk/group__lavc__encdec.html#ga4c1691163d2b0616f21af5fed28b6de3
   while (response >= 0) {
@@ -198,15 +210,6 @@ static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx,
       return response;
     }
 
-    AVFrame *dst_frame = av_frame_alloc();
-    if (!dst_frame) {
-        fprintf(stderr, "Could not allocate destination frame\n");
-        exit(1);
-    }
-    dst_frame->format = PIX_FMT;
-    dst_frame->width = SCR_WIDTH;
-    dst_frame->height = SCR_HEIGHT;
-
     if (av_image_alloc(dst_frame->data, dst_frame->linesize, SCR_WIDTH,
                        SCR_HEIGHT, PIX_FMT, 32) < 0) {
       fprintf(stderr, "Could not alloc image\n");
@@ -216,7 +219,6 @@ static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx,
     sws_scale(sws_ctx, (const uint8_t *const *)frame->data, frame->linesize, 0,
               frame->height, dst_frame->data, dst_frame->linesize);
     display_frame(dst_frame, renderer, texture);
-    av_frame_free(&dst_frame);
   }
   return 0;
 }
