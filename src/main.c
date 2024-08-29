@@ -9,6 +9,7 @@ http://www.dranger.com/ffmpeg/tutorial01.html
 https://lazyfoo.net/tutorials/SDL/01_hello_SDL/index2.php
 */
 
+#include "SDL2/SDL_events.h"
 #include "libavutil/frame.h"
 #include "libavutil/pixfmt.h"
 #include <SDL2/SDL.h>
@@ -33,8 +34,9 @@ const int SCR_HEIGHT = 280;
 const enum AVPixelFormat PIX_FMT = AV_PIX_FMT_YUV420P;
 
 static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx,
-                         AVFrame *frame, AVFrame *dst_frame, struct SwsContext *sws_ctx,
-                         SDL_Renderer *renderer, SDL_Texture *texture);
+                         AVFrame *frame, AVFrame *dst_frame,
+                         struct SwsContext *sws_ctx, SDL_Renderer *renderer,
+                         SDL_Texture *texture);
 static void display_frame(AVFrame *frame, SDL_Renderer *renderer,
                           SDL_Texture *texture);
 
@@ -53,7 +55,7 @@ int main(int argc, char **argv) {
 
   SDL_Window *window = SDL_CreateWindow(
       "ffmpeg-sdl", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCR_WIDTH,
-      SCR_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_ALWAYS_ON_TOP);
+      SCR_HEIGHT, SDL_WINDOW_SHOWN);
 
   if (!window) {
     fprintf(stderr, "Could not create SDL window, SDL_ERROR: %s\n",
@@ -153,8 +155,8 @@ int main(int argc, char **argv) {
 
   AVFrame *dst_frame = av_frame_alloc();
   if (!dst_frame) {
-      fprintf(stderr, "Could not allocate destination frame\n");
-      exit(1);
+    fprintf(stderr, "Could not allocate destination frame\n");
+    exit(1);
   }
 
   dst_frame->format = PIX_FMT;
@@ -163,17 +165,23 @@ int main(int argc, char **argv) {
 
   // fill the Packet with data from the Stream
   // https://ffmpeg.org/doxygen/trunk/group__lavf__decoding.html#ga4fdb3084415a82e3810de6ee60e46a61
-  int amt_packets = 8; // first two packets are NAL
-  while (av_read_frame(format_ctx, packet) >= 0) {
+  // first two packets are NAL
+
+  SDL_Event event;
+  int running = 1;
+  while (av_read_frame(format_ctx, packet) >= 0 && running) {
     if (packet->stream_index == vid_index) {
-      if (decode_packet(packet, codec_ctx, frame, dst_frame, sws_ctx, renderer, texture) <
-          0)
-        break;
-      if (--amt_packets <= 0)
+      if (decode_packet(packet, codec_ctx, frame, dst_frame, sws_ctx, renderer,
+                        texture) < 0)
         break;
     }
     av_packet_unref(packet);
-    SDL_PollEvent(NULL); // required to get screen to show up
+    // required to get screen to show up
+    while (SDL_PollEvent(&event)) {
+      if (event.type == SDL_KEYDOWN) {
+        running = 0;
+      }
+    }
   }
 
   // free resources
@@ -191,8 +199,9 @@ int main(int argc, char **argv) {
 }
 
 static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx,
-                         AVFrame *frame, AVFrame *dst_frame, struct SwsContext *sws_ctx,
-                         SDL_Renderer *renderer, SDL_Texture *texture) {
+                         AVFrame *frame, AVFrame *dst_frame,
+                         struct SwsContext *sws_ctx, SDL_Renderer *renderer,
+                         SDL_Texture *texture) {
   if (avcodec_send_packet(codec_ctx, packet) < 0) {
     fprintf(stderr, "Could not send packet to decoder\n");
     return -1;
@@ -231,5 +240,4 @@ static void display_frame(AVFrame *frame, SDL_Renderer *renderer,
   SDL_RenderClear(renderer);
   SDL_RenderCopy(renderer, texture, NULL, NULL);
   SDL_RenderPresent(renderer);
-  SDL_Delay(250);
 }
