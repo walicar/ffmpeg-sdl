@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
   }
 
   AVCodecContext *codec_ctx = avcodec_alloc_context3(codec);
-  if (!codec) {
+  if (!codec_ctx) {
     fprintf(stderr, "Could not allocate codec context\n");
     exit(1);
   }
