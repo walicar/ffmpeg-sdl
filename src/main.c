@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
 
   const AVCodec *codec = avcodec_find_decoder(params->codec_id);
   if (!codec) {
-    fprintf(stderr, "Could not find codec H264\n");
+    fprintf(stderr, "Could not find codec %d\n", params->codec_id);
     exit(1);
   }
 
