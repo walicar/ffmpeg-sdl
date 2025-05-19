@@ -29,8 +29,8 @@ https://lazyfoo.net/tutorials/SDL/01_hello_SDL/index2.php
 #include <stdio.h>
 #include <stdlib.h>
 
-const int SCR_WIDTH = 470;
-const int SCR_HEIGHT = 280;
+const int SCR_WIDTH = 720;
+const int SCR_HEIGHT = 480;
 const enum AVPixelFormat PIX_FMT = AV_PIX_FMT_YUV420P;
 
 static int decode_packet(AVPacket *packet, AVCodecContext *codec_ctx,
