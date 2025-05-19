@@ -1,7 +1,7 @@
 # ffmpeg-sdl
 
 ## Required Assets
-Uses `bbb_sunflower_1080p_30fps_normal.mp4` from [this website](https://peach.blender.org/download/), renamed to `bbb.mp4`. `bbb.mp4` is already encoded with encoded in H264.
+Uses `bbb_sunflower_1080p_30fps_normal.mp4` from [this website](https://peach.blender.org/download/), renamed to `bbb.mp4`. `bbb.mp4` is already encoded in H264.
 
 ## Usage
 ```sh
