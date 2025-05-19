@@ -9,13 +9,13 @@ http://www.dranger.com/ffmpeg/tutorial01.html
 https://lazyfoo.net/tutorials/SDL/01_hello_SDL/index2.php
 */
 
-#include "SDL2/SDL_events.h"
+#include "SDL3/SDL_events.h"
 #include "libavutil/frame.h"
 #include "libavutil/pixfmt.h"
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_error.h>
-#include <SDL2/SDL_render.h>
-#include <SDL2/SDL_video.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_render.h>
+#include <SDL3/SDL_video.h>
 #include <libavcodec/avcodec.h>
 #include <libavcodec/codec.h>
 #include <libavcodec/codec_id.h>
@@ -48,14 +48,14 @@ int main(int argc, char **argv) {
     exit(0);
   }
 
-  if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+  if (!SDL_Init(SDL_INIT_VIDEO)) {
     fprintf(stderr, "Could not initialize SDL\n");
     exit(1);
   }
 
   SDL_Window *window = SDL_CreateWindow(
-      "ffmpeg-sdl", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCR_WIDTH,
-      SCR_HEIGHT, SDL_WINDOW_SHOWN);
+      "ffmpeg-sdl", SCR_WIDTH,
+      SCR_HEIGHT, 0);
 
   if (!window) {
     fprintf(stderr, "Could not create SDL window, SDL_ERROR: %s\n",
@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
   }
 
   SDL_Renderer *renderer =
-      SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+      SDL_CreateRenderer(window, NULL);
 
   if (!renderer) {
     fprintf(stderr, "Could not create SDL renderer, SDL_ERROR: %s\n",
@@ -178,7 +178,7 @@ int main(int argc, char **argv) {
     av_packet_unref(packet);
     // required to get screen to show up
     while (SDL_PollEvent(&event)) {
-      if (event.type == SDL_KEYDOWN) {
+      if (event.type == SDL_EVENT_KEY_DOWN) {
         running = 0;
       }
     }
@@ -238,6 +238,6 @@ static void display_frame(AVFrame *frame, SDL_Renderer *renderer,
                        frame->data[1], frame->linesize[1], frame->data[2],
                        frame->linesize[2]);
   SDL_RenderClear(renderer);
-  SDL_RenderCopy(renderer, texture, NULL, NULL);
+  SDL_RenderTexture(renderer, texture, NULL, NULL);
   SDL_RenderPresent(renderer);
 }

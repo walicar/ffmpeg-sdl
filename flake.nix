@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     utils.url = "github:numtide/flake-utils";
   };
 
@@ -8,19 +8,19 @@
     let
       pkgs = import nixpkgs { inherit system; };
       ffmpegPath = pkgs.ffmpeg.dev;
-      sdl2Path = pkgs.SDL2.dev;
+      sdl3Path = pkgs.sdl3.dev;
     in {
       devShells.default = pkgs.mkShell {
         packages = with pkgs; [
           pkg-config
           ffmpeg
-          SDL2
+          sdl3
         ];
         shellHook = ''
           export SRC=$(pwd)
 
           export FFMPEG_DEV=${ffmpegPath}
-          export SDL2_DEV=${sdl2Path}
+          export SDL3_DEV=${sdl3Path}
 
           bash scripts/setup_clangd.sh
           bash scripts/setup_vscode.sh
